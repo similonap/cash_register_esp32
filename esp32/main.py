@@ -8,7 +8,7 @@ BUZZER: passive buzzer on GPIO 27 (PWM)
 
 import urequests
 import wifi
-from config import SSID, PASSWORD
+from config import SSID, PASSWORD, API_KEY
 from machine import SoftSPI, I2C, Pin, PWM
 from time import sleep_ms
 from mfrc522 import MFRC522
@@ -33,6 +33,8 @@ spi = SoftSPI(baudrate=1000000, polarity=0, phase=0,
 cs  = Pin(5, Pin.OUT)
 rst = Pin(2, Pin.OUT)
 rdr = MFRC522(spi, cs, rst)
+
+HEADERS = {"X-API-Key": API_KEY}
 
 buzzer = PWM(Pin(27), freq=1000, duty=0)
 
@@ -76,7 +78,7 @@ def connect_wifi():
 
 def get_balance(card_uid_hex):
     try:
-        res = urequests.get("https://cash-register.slimmii.workers.dev/" + card_uid_hex, timeout=5)
+        res = urequests.get("https://cash-register.slimmii.workers.dev/" + card_uid_hex, headers=HEADERS, timeout=5)
         data = res.json()
         res.close()
         return data
@@ -84,13 +86,15 @@ def get_balance(card_uid_hex):
         print("Balance error:", e)
         return None
 
-def checkout(card_uid_hex, product_ids):
+def checkout(card_uid_hex, product_ids, seller_id=None):
     lcd.clear()
     lcd.putstr("Processing...")
     try:
         url = "https://cash-register.slimmii.workers.dev/sales"
         payload = {"card_id": card_uid_hex, "product_ids": product_ids}
-        res = urequests.post(url, json=payload, timeout=5)
+        if seller_id:
+            payload["seller_id"] = seller_id
+        res = urequests.post(url, json=payload, headers=HEADERS, timeout=5)
         data = res.json()
         res.close()
         return data
@@ -105,7 +109,7 @@ def load_data(silent=False):
         lcd.putstr("Loading prods")
     products = {}
     try:
-        res = urequests.get("https://cash-register.slimmii.workers.dev/products", timeout=10)
+        res = urequests.get("https://cash-register.slimmii.workers.dev/products", headers=HEADERS, timeout=10)
         for p in res.json():
             label = p.get("label", p["product_id"]).upper()
             products[int(p["product_id"], 16)] = (label, p["price"])
@@ -119,7 +123,7 @@ def load_data(silent=False):
         lcd.putstr("Loading cards ")
     cards = set()
     try:
-        res = urequests.get("https://cash-register.slimmii.workers.dev/cards", timeout=10)
+        res = urequests.get("https://cash-register.slimmii.workers.dev/cards", headers=HEADERS, timeout=10)
         for c in res.json():
             cards.add(int(c, 16))
         res.close()
@@ -129,7 +133,7 @@ def load_data(silent=False):
     # Admin cards: unlock/lock the register
     admin_cards = set()
     try:
-        res = urequests.get("https://cash-register.slimmii.workers.dev/cards?admin=1", timeout=10)
+        res = urequests.get("https://cash-register.slimmii.workers.dev/cards?admin=1", headers=HEADERS, timeout=10)
         for c in res.json():
             admin_cards.add(int(c, 16))
         res.close()
@@ -146,6 +150,7 @@ PRODUCTS, CARDS, ADMIN_CARDS = load_data()
 basket_total = 0
 basket_products = []
 locked = True
+current_seller_id = None
 
 lcd.clear()
 lcd.putstr("** LOCKED **")
@@ -163,6 +168,7 @@ while True:
                 beep()
                 if locked:
                     locked = False
+                    current_seller_id = uid_hex
                     lcd.clear()
                     lcd.putstr("** UNLOCKED **")
                     lcd.move_to(0, 1)
@@ -174,6 +180,7 @@ while True:
                         sleep_ms(100)
                 else:
                     locked = True
+                    current_seller_id = None
                     basket_total = 0
                     basket_products = []
                     lcd.clear()
@@ -204,7 +211,7 @@ while True:
                     lcd.move_to(0, 1)
                     lcd.putstr("TOTAL: 0")
                 else:
-                    data = checkout(uid_hex, basket_products)
+                    data = checkout(uid_hex, basket_products, current_seller_id)
                     lcd.clear()
                     if data and "error" in data:
                         lcd.putstr(data["error"][:16])

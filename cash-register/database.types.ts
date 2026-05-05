@@ -20,6 +20,7 @@ export type Database = {
           balance: number | null
           card_id: string
           created_at: string
+          key: string | null
           name: string | null
         }
         Insert: {
@@ -27,6 +28,7 @@ export type Database = {
           balance?: number | null
           card_id: string
           created_at?: string
+          key?: string | null
           name?: string | null
         }
         Update: {
@@ -34,6 +36,7 @@ export type Database = {
           balance?: number | null
           card_id?: string
           created_at?: string
+          key?: string | null
           name?: string | null
         }
         Relationships: []
@@ -64,24 +67,34 @@ export type Database = {
           card_id: string | null
           created_at: string
           id: number
+          seller_id: string | null
           total_price: number | null
         }
         Insert: {
           card_id?: string | null
           created_at?: string
           id?: number
+          seller_id?: string | null
           total_price?: number | null
         }
         Update: {
           card_id?: string | null
           created_at?: string
           id?: number
+          seller_id?: string | null
           total_price?: number | null
         }
         Relationships: [
           {
             foreignKeyName: "sales_card_id_fkey"
             columns: ["card_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["card_id"]
+          },
+          {
+            foreignKeyName: "sales_seller_id_fkey"
+            columns: ["seller_id"]
             isOneToOne: false
             referencedRelation: "accounts"
             referencedColumns: ["card_id"]

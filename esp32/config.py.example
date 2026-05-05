@@ -8,3 +8,4 @@ PASSWORD = ""
 WIFI_TIMEOUT_S = 15
 
 API_BASE = "https://cash-register.slimmii.workers.dev/"
+API_KEY  = ""  # generate with: openssl rand -hex 32

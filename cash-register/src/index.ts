@@ -15,9 +15,19 @@ const schema = z.object({
 const saleSchema = z.object({
   card_id: z.string(),
   product_ids: z.array(z.string()).min(1),
+  seller_id: z.string().optional(),
 });
 
 const app = new Hono();
+
+app.use('*', async (c, next) => {
+    const { API_KEY } = env<{ API_KEY: string }>(c);
+    const key = c.req.header('X-API-Key');
+    if (!key || key !== API_KEY) {
+        return c.json({ error: 'Unauthorized' }, 401);
+    }
+    await next();
+});
 
 app.get("/:id/subtract/:amount", zValidator('param', schema), async (c) => {
     const { id, amount } = c.req.valid('param');
@@ -84,7 +94,7 @@ app.get("/:id/add/:amount", zValidator('param', schema), async (c) => {
 
 
 app.post('/sales', zValidator('json', saleSchema), async (c) => {
-    const { card_id, product_ids } = c.req.valid('json');
+    const { card_id, product_ids, seller_id } = c.req.valid('json');
 
     const { SUPABASE_KEY, SUPABASE_URL } = env<{ SUPABASE_URL: string, SUPABASE_KEY: string }>(c);
     const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY);
@@ -122,7 +132,7 @@ app.post('/sales', zValidator('json', saleSchema), async (c) => {
 
     const { data: sale, error: saleError } = await supabase
         .from("sales")
-        .insert({ card_id, total_price: total })
+        .insert({ card_id, total_price: total, seller_id: seller_id ?? null })
         .select("id")
         .single();
 
