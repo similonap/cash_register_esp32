@@ -1,0 +1,10 @@
+"""
+config.py — nfc_reader_demo configuration
+"""
+
+SSID     = ""
+PASSWORD = ""
+
+WIFI_TIMEOUT_S = 15
+
+API_BASE = "https://cash-register.slimmii.workers.dev/"
