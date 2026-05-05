@@ -64,16 +64,19 @@ export type Database = {
           card_id: string | null
           created_at: string
           id: number
+          total_price: number | null
         }
         Insert: {
           card_id?: string | null
           created_at?: string
           id?: number
+          total_price?: number | null
         }
         Update: {
           card_id?: string | null
           created_at?: string
           id?: number
+          total_price?: number | null
         }
         Relationships: [
           {

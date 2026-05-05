@@ -8,7 +8,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HANNA_DIR="$(cd "$SCRIPT_DIR/../hanna_light" && pwd)"
 
 PORT="${1:-}"
 if [ -z "$PORT" ]; then
@@ -29,10 +28,10 @@ for f in main.py mfrc522.py config.py wifi.py; do
   mpremote connect "$PORT" cp "$SCRIPT_DIR/$f" ":$f"
 done
 
-echo ">>> Copying LCD library from hanna_light ..."
+echo ">>> Copying LCD library ..."
 for f in I2C_LCD.py LCD_API.py; do
   echo "    $f"
-  mpremote connect "$PORT" cp "$HANNA_DIR/$f" ":$f"
+  mpremote connect "$PORT" cp "$SCRIPT_DIR/$f" ":$f"
 done
 
 echo ">>> Running main.py ..."

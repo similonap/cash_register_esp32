@@ -113,7 +113,8 @@ app.post('/sales', zValidator('json', saleSchema), async (c) => {
         return c.json({ error: "Products not found", missing }, 404);
     }
 
-    const total = products.reduce((sum, p) => sum + (p.price ?? 0), 0);
+    const priceById = new Map(products.map(p => [p.product_id, p.price ?? 0]));
+    const total = product_ids.reduce((sum, id) => sum + (priceById.get(id) ?? 0), 0);
 
     if ((account.balance ?? 0) < total) {
         return c.json({ error: "Insufficient balance" }, 422);
@@ -121,7 +122,7 @@ app.post('/sales', zValidator('json', saleSchema), async (c) => {
 
     const { data: sale, error: saleError } = await supabase
         .from("sales")
-        .insert({ card_id })
+        .insert({ card_id, total_price: total })
         .select("id")
         .single();
 

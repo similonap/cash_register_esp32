@@ -74,12 +74,23 @@ def connect_wifi():
     lcd.putstr("WiFi OK")
     sleep_ms(1000)
 
-def checkout(uid_hex, amount):
+def get_balance(card_uid_hex):
+    try:
+        res = urequests.get("https://cash-register.slimmii.workers.dev/" + card_uid_hex, timeout=5)
+        data = res.json()
+        res.close()
+        return data
+    except Exception as e:
+        print("Balance error:", e)
+        return None
+
+def checkout(card_uid_hex, product_ids):
     lcd.clear()
     lcd.putstr("Processing...")
     try:
-        url = "https://cash-register.slimmii.workers.dev/" + uid_hex + "/subtract/" + str(amount)
-        res = urequests.get(url, timeout=5)
+        url = "https://cash-register.slimmii.workers.dev/sales"
+        payload = {"card_id": card_uid_hex, "product_ids": product_ids}
+        res = urequests.post(url, json=payload, timeout=5)
         data = res.json()
         res.close()
         return data
@@ -133,6 +144,7 @@ connect_wifi()
 PRODUCTS, CARDS, ADMIN_CARDS = load_data()
 
 basket_total = 0
+basket_products = []
 locked = True
 
 lcd.clear()
@@ -163,6 +175,7 @@ while True:
                 else:
                     locked = True
                     basket_total = 0
+                    basket_products = []
                     lcd.clear()
                     lcd.putstr("** LOCKED **")
                 sleep_ms(1500)
@@ -176,28 +189,57 @@ while True:
                 PRODUCTS, CARDS, ADMIN_CARDS = load_data(silent=True)
             elif uid_int in CARDS:
                 beep()
-                data = checkout(uid_hex, basket_total)
-                lcd.clear()
-                if data and "error" in data:
-                    lcd.putstr(data["error"][:16])
-                    sleep_ms(3000)
-                    basket_total = 0
+                if not basket_products:
+                    data = get_balance(uid_hex)
                     lcd.clear()
+                    if data and data.get("balance") is not None:
+                        lcd.putstr(str(data.get("name", ""))[:16])
+                        lcd.move_to(0, 1)
+                        lcd.putstr(("BAL: " + str(data["balance"]))[:16])
+                    else:
+                        lcd.putstr("Balance error")
+                    sleep_ms(3000)
+                    lcd.clear()
+                    lcd.putstr("** UNLOCKED **")
                     lcd.move_to(0, 1)
                     lcd.putstr("TOTAL: 0")
-                elif data:
-                    beep_success()
-                    basket_total = 0
-                    lcd.putstr(data.get("name", "Account")[:16])
-                    lcd.move_to(0, 1)
-                    lcd.putstr(("EUR " + str(data.get("balance", "?")))[:16])
                 else:
-                    basket_total = 0
-                    lcd.putstr("Payment failed")
+                    data = checkout(uid_hex, basket_products)
+                    lcd.clear()
+                    if data and "error" in data:
+                        lcd.putstr(data["error"][:16])
+                        sleep_ms(3000)
+                        basket_total = 0
+                        basket_products = []
+                        lcd.clear()
+                        lcd.move_to(0, 1)
+                        lcd.putstr("TOTAL: 0")
+                    elif data:
+                        beep_success()
+                        basket_total = 0
+                        basket_products = []
+                        lcd.putstr(("PAID: " + str(data.get("total", "?")))[:16])
+                        bal = get_balance(uid_hex)
+                        sleep_ms(2000)
+                        lcd.clear()
+                        if bal and bal.get("balance") is not None:
+                            lcd.putstr(str(bal.get("name", ""))[:16])
+                            lcd.move_to(0, 1)
+                            lcd.putstr(("BAL: " + str(bal["balance"]))[:16])
+                        sleep_ms(3000)
+                        lcd.clear()
+                        lcd.putstr("** UNLOCKED **")
+                        lcd.move_to(0, 1)
+                        lcd.putstr("TOTAL: 0")
+                    else:
+                        basket_total = 0
+                        basket_products = []
+                        lcd.putstr("Payment failed")
             elif uid_int in PRODUCTS:
                 beep()
                 label, price = PRODUCTS[uid_int]
                 basket_total += price
+                basket_products.append(uid_hex)
                 lcd.clear()
                 lcd.putstr("%-13s%3d" % (label[:13], price))
                 lcd.move_to(0, 1)
