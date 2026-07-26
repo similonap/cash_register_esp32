@@ -108,6 +108,17 @@ app.post('/sales', zValidator('json', saleSchema), async (c) => {
     if (accountError) throw accountError;
     if (!account) return c.json({ error: "Account not found" }, 404);
 
+    if (seller_id) {
+        const { data: seller, error: sellerError } = await supabase
+            .from("accounts")
+            .select("card_id")
+            .eq("card_id", seller_id)
+            .maybeSingle();
+
+        if (sellerError) throw sellerError;
+        if (!seller) return c.json({ error: "Seller not found" }, 404);
+    }
+
     const { data: products, error: productsError } = await supabase
         .from("products")
         .select("product_id, price")
@@ -155,7 +166,16 @@ app.post('/sales', zValidator('json', saleSchema), async (c) => {
 
     if (balanceError) throw balanceError;
 
-    return c.json({ sale_id: sale.id, total, items: saleItems.length }, 201);
+    if (seller_id) {
+        const { error: sellerBalanceError } = await supabase.rpc("update_balance", {
+            p_card_id: seller_id,
+            amount: total,
+        });
+
+        if (sellerBalanceError) throw sellerBalanceError;
+    }
+
+    return c.json({ sale_id: sale.id, total, items: saleItems.length, seller_id: seller_id ?? null }, 201);
 });
 
 app.get('/products', async (c) => {
